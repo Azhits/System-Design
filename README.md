@@ -36,14 +36,15 @@ System-Design/
 ## Быстрый старт
 
 ```bash
-# 1. Установить зависимости
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# Linux / macOS
+# source .venv/bin/activate
+
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-
-# 2. Запустить демо
-python poc/run_demo.py
-
-# 3. Открыть в браузере
-# http://127.0.0.1:8000
+python -m uvicorn poc.app:app --reload
 ```
 
 Также можно использовать curl для отправки тикетов и просмотра журнала аудита.
