@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Support Ticket Automation - Demo</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; max-width: 960px; margin: 30px auto; padding: 0 16px; background: #0d1117; color: #c9d1d9; }
+  h1 { font-size: 20px; }
+  textarea, input { width: 100%; box-sizing: border-box; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-family: inherit; }
+  button { background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px; }
+  button:hover { background: #2ea043; }
+  button.secondary { background: #30363d; }
+  pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; white-space: pre-wrap; word-break: break-word; }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  .row > * { flex: 1; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  th, td { border: 1px solid #30363d; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #161b22; }
+</style>
+</head>
+<body>
+<h1>Support Ticket Automation - PoC Demo</h1>
+
+<h3>Обработать один тикет</h3>
+<input id="ticketId" placeholder="ticket_id, напр. T100" value="T100">
+<textarea id="ticketText" rows="3" placeholder="Текст тикета"></textarea>
+<div class="row">
+  <input id="queueSize" type="number" placeholder="queue_size" value="0">
+  <label style="flex:0 0 auto; align-self:center;"><input id="llmAvailable" type="checkbox" checked style="width:auto;"> LLM available</label>
+</div>
+<button onclick="submitTicket()">Отправить тикет</button>
+<button class="secondary" onclick="loadMock()">Прогнать mock_tickets.json</button>
+<button class="secondary" onclick="loadDecisions()">Показать журнал решений</button>
+
+<h3>Результат</h3>
+<pre id="output">-</pre>
+
+<div id="tableWrap"></div>
+
+<script>
+async function submitTicket() {
+  const ticket_id = document.getElementById('ticketId').value || 'T100';
+  const text = document.getElementById('ticketText').value;
+  const queue_size = document.getElementById('queueSize').value || 0;
+  const llm_available = document.getElementById('llmAvailable').checked;
+  const res = await fetch(`/tickets?queue_size=${queue_size}&llm_available=${llm_available}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ticket_id, text})
+  });
+  const data = await res.json();
+  document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+  document.getElementById('tableWrap').innerHTML = '';
+}
+
+async function loadMock() {
+  const res = await fetch('/tickets/mock');
+  const data = await res.json();
+  renderTable(data);
+  document.getElementById('output').textContent = `Обработано тикетов: ${data.length}`;
+}
+
+async function loadDecisions() {
+  const res = await fetch('/decisions');
+  const data = await res.json();
+  renderTable(data);
+  document.getElementById('output').textContent = `Записей в журнале: ${data.length}`;
+}
+
+function renderTable(records) {
+  if (!records.length) { document.getElementById('tableWrap').innerHTML = '<p>Нет данных</p>'; return; }
+  let html = '<table><tr><th>ID</th><th>Тема</th><th>Увер.</th><th>PII</th><th>Действие</th><th>Оператор?</th><th>Черновик</th></tr>';
+  for (const r of records) {
+    html += `<tr><td>${r.ticket_id ?? ''}</td><td>${r.topic ?? ''}</td><td>${r.confidence ?? ''}</td><td>${r.pii_risk ?? ''}</td><td>${r.action ?? ''}</td><td>${r.requires_human ?? ''}</td><td>${(r.draft ?? '').toString().slice(0,120)}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('tableWrap').innerHTML = html;
+}
+</script>
+</body>
+</html>
