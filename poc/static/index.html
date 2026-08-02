@@ -4,13 +4,19 @@
 <meta charset="UTF-8">
 <title>Support Ticket Automation - Demo</title>
 <style>
-  body { font-family: -apple-system, Arial, sans-serif; max-width: 960px; margin: 30px auto; padding: 0 16px; background: #0d1117; color: #c9d1d9; }
+  body { font-family: -apple-system, Arial, sans-serif; max-width: 1080px; margin: 30px auto; padding: 0 16px; background: #0d1117; color: #c9d1d9; }
   h1 { font-size: 20px; }
+  h3 { font-size: 14px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 20px; }
   textarea, input[type=text], input[type=number] { width: 100%; box-sizing: border-box; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-family: inherit; }
-  button { background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px; }
+  button { background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px; font-size: 13px; }
   button:hover { background: #2ea043; }
   button.secondary { background: #30363d; }
-  pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; white-space: pre-wrap; word-break: break-word; }
+  button.secondary:hover { background: #484f58; }
+  button.danger { background: #da3633; }
+  button.danger:hover { background: #f85149; }
+  button.accent { background: #1f6feb; }
+  button.accent:hover { background: #388bfd; }
+  pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
   .row { display: flex; gap: 8px; margin-top: 8px; }
   .row > * { flex: 1; }
   table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
@@ -20,46 +26,174 @@
   td.draft-cell { max-width: 220px; color: #8b949e; font-style: italic; }
   tr.clickable { cursor: pointer; }
   tr.clickable:hover td { background: #1c2128; }
+
+  /* ---- Badges ---- */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-auto_close   { background: #1a4731; color: #3fb950; border: 1px solid #3fb950; }
+  .badge-suggest      { background: #3d2b00; color: #e3b341; border: 1px solid #e3b341; }
+  .badge-escalate     { background: #3d0000; color: #f85149; border: 1px solid #f85149; }
+  .badge-high_pii     { background: #2d1145; color: #d2a8ff; border: 1px solid #d2a8ff; }
+  .badge-low_pii      { background: #2b2d0f; color: #d4af37; border: 1px solid #d4af37; }
+  .badge-none         { background: #1c2128; color: #8b949e; border: 1px solid #30363d; }
+  .badge-L0 { background: #1a4731; color: #3fb950; border: 1px solid #3fb950; }
+  .badge-L1 { background: #3d2b00; color: #e3b341; border: 1px solid #e3b341; }
+  .badge-L2 { background: #3d1a00; color: #ff8c00; border: 1px solid #ff8c00; }
+  .badge-L3 { background: #3d0000; color: #f85149; border: 1px solid #f85149; }
+  .badge-L4 { background: #2d1145; color: #d2a8ff; border: 1px solid #d2a8ff; }
+
+  /* ---- Summary metrics ---- */
+  .metrics-bar { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .metric-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 16px; min-width: 110px; text-align: center; }
+  .metric-card .val { font-size: 22px; font-weight: 700; color: #58a6ff; }
+  .metric-card .lbl { font-size: 11px; color: #8b949e; margin-top: 2px; }
+
+  /* ---- Demo scenario buttons ---- */
+  .scenario-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .scenario-btn { background: #161b22; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+  .scenario-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+
+  /* ---- Decision trace ---- */
+  .trace-list { list-style: none; padding: 0; margin: 6px 0 0; }
+  .trace-list li { font-size: 12px; color: #8b949e; padding: 2px 0; }
+  .trace-list li::before { content: "▸ "; color: #388bfd; }
+
+  /* ---- PII preview ---- */
+  .pii-block { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin-top: 8px; font-size: 12px; }
+  .pii-block .pii-label { color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .pii-original { color: #c9d1d9; word-break: break-word; }
+  .pii-masked { color: #e3b341; word-break: break-word; margin-top: 4px; }
+  .pii-entities { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+  /* ---- Modal ---- */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
-  .modal { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 24px; max-width: 680px; width: 95%; max-height: 80vh; overflow-y: auto; position: relative; }
+  .modal { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 24px; max-width: 720px; width: 95%; max-height: 85vh; overflow-y: auto; position: relative; }
   .modal h3 { margin-top: 0; font-size: 15px; color: #58a6ff; }
   .modal pre { margin: 0; font-size: 12px; }
   .modal-close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: #8b949e; font-size: 20px; cursor: pointer; padding: 0; }
   .modal-close:hover { color: #c9d1d9; }
   .ticket-input-block { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin-bottom: 12px; font-size: 13px; color: #8b949e; }
   .ticket-input-block strong { color: #c9d1d9; display: block; margin-bottom: 4px; }
+  .section-title { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.04em; margin: 12px 0 4px; }
+  .approved-banner { background: #1a4731; border: 1px solid #3fb950; color: #3fb950; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-top: 10px; display: none; }
 </style>
 </head>
 <body>
 <h1>Support Ticket Automation — PoC Demo</h1>
 
+<!-- ===== DEMO SCENARIOS ===== -->
+<h3>Быстрые сценарии</h3>
+<div class="scenario-bar">
+  <button class="scenario-btn" onclick="loadScenario('happy')">✅ Happy path: account access</button>
+  <button class="scenario-btn" onclick="loadScenario('risky')">⚠️ Risky path: payment + PII</button>
+  <button class="scenario-btn" onclick="loadScenario('highload')">🔥 High load mode</button>
+  <button class="scenario-btn" onclick="loadScenario('llm_off')">🚫 LLM unavailable</button>
+</div>
+
+<!-- ===== TICKET FORM ===== -->
 <h3>Обработать один тикет</h3>
-<input id="ticketId" type="text" placeholder="ticket_id, напр. T100" value="T100">
+<input id="ticketId" type="text" placeholder="ticket_id" value="T100">
 <textarea id="ticketText" rows="3" placeholder="Текст тикета"></textarea>
 <div class="row">
-  <input id="queueSize" type="number" placeholder="queue_size" value="0">
-  <label style="flex:0 0 auto; align-self:center;"><input id="llmAvailable" type="checkbox" checked style="width:auto;"> LLM available</label>
+  <div><label style="font-size:12px;color:#8b949e">queue_size</label><input id="queueSize" type="number" value="0"></div>
+  <div style="align-self:flex-end;padding-bottom:4px"><label style="font-size:13px"><input id="llmAvailable" type="checkbox" checked style="width:auto;"> LLM available</label></div>
 </div>
-<button onclick="submitTicket()">Отправить тикет</button>
-<button class="secondary" onclick="loadMock()">Прогнать mock_tickets.json</button>
-<button class="secondary" onclick="loadDecisions()">Показать журнал решений</button>
+<div class="row" style="margin-top:8px">
+  <button onclick="submitTicket()">Отправить тикет</button>
+  <button class="secondary" onclick="loadMock()">Прогнать mock_tickets.json</button>
+  <button class="secondary" onclick="loadDecisions()">Показать журнал решений</button>
+</div>
 
 <h3>Результат</h3>
 <pre id="output">-</pre>
 
+<!-- ===== SUMMARY METRICS ===== -->
+<div id="metricsWrap" style="display:none">
+  <h3>Сводная статистика</h3>
+  <div class="metrics-bar" id="metricsBar"></div>
+</div>
+
 <div id="tableWrap"></div>
 
+<!-- ===== MODAL ===== -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" id="modalBox">
     <button class="modal-close" onclick="closeModalDirect()">&#x2715;</button>
     <h3>Детали тикета</h3>
+
     <div class="ticket-input-block" id="modalInput"></div>
+
+    <!-- Decision trace -->
+    <div class="section-title">Трассировка решения</div>
+    <ul class="trace-list" id="modalTrace"></ul>
+
+    <!-- PII preview -->
+    <div id="modalPiiBlock" style="display:none">
+      <div class="section-title">PII Preview</div>
+      <div class="pii-block">
+        <div class="pii-label">Оригинальный текст</div>
+        <div class="pii-original" id="piiOriginal"></div>
+        <div class="pii-label" style="margin-top:8px">Маскированный текст (для LLM)</div>
+        <div class="pii-masked" id="piiMasked"></div>
+        <div class="pii-label" style="margin-top:8px">Обнаруженные сущности</div>
+        <div class="pii-entities" id="piiEntities"></div>
+      </div>
+    </div>
+
+    <!-- Human-in-the-loop re-run -->
+    <div id="humanLoopBlock" style="display:none;margin-top:12px">
+      <div class="section-title">Human-in-the-loop</div>
+      <button class="accent" onclick="approveAndRerun()" id="approveBtn">🛡️ Оператор подтвердил безопасность — перезапустить с safe=true</button>
+      <div class="approved-banner" id="approvedBanner">✅ Оператор одобрил. Система сгенерировала улучшенный черновик (mock-flow).</div>
+    </div>
+
+    <!-- Raw JSON -->
+    <div class="section-title" style="margin-top:12px">Полный JSON</div>
     <pre id="modalContent"></pre>
   </div>
 </div>
 
 <script>
+const SCENARIOS = {
+  happy: {
+    ticket_id: 'T-HAPPY',
+    text: 'Не могу войти в личный кабинет, забыл пароль. Помогите восстановить доступ.',
+    queue_size: 0,
+    llm_available: true,
+    label: 'Happy path: account access'
+  },
+  risky: {
+    ticket_id: 'T-RISKY',
+    text: 'Меня зовут Иванов Алексей Петрович, телефон +7 916 123-45-67. С моей карты 4276 1234 5678 9010 списали 3500 руб без моего ведома. Требую вернуть!',
+    queue_size: 0,
+    llm_available: true,
+    label: 'Risky path: payment + PII'
+  },
+  highload: {
+    ticket_id: 'T-LOAD',
+    text: 'Как изменить тариф подписки? Не нахожу кнопку в настройках.',
+    queue_size: 300,
+    llm_available: true,
+    label: 'High load mode (queue=300, L2)'
+  },
+  llm_off: {
+    ticket_id: 'T-NOLLM',
+    text: 'Приложение зависает при открытии раздела статистики.',
+    queue_size: 0,
+    llm_available: false,
+    label: 'LLM unavailable (→ retrieval fallback)'
+  }
+};
+
+function loadScenario(key) {
+  const s = SCENARIOS[key];
+  document.getElementById('ticketId').value = s.ticket_id;
+  document.getElementById('ticketText').value = s.text;
+  document.getElementById('queueSize').value = s.queue_size;
+  document.getElementById('llmAvailable').checked = s.llm_available;
+  submitTicket();
+}
+
 let lastInput = '';
 
 async function submitTicket() {
@@ -77,6 +211,7 @@ async function submitTicket() {
   const output = { _input: { ticket_id, text }, ...data };
   document.getElementById('output').textContent = JSON.stringify(output, null, 2);
   document.getElementById('tableWrap').innerHTML = '';
+  document.getElementById('metricsWrap').style.display = 'none';
 }
 
 async function loadMock() {
@@ -91,29 +226,149 @@ async function loadDecisions() {
   renderTable(data, 'Записей в журнале');
 }
 
+function actionBadge(action) {
+  const map = { auto_close: 'auto_close', suggest: 'suggest', escalate: 'escalate' };
+  const cls = map[action] || 'none';
+  return `<span class="badge badge-${cls}">${action ?? '-'}</span>`;
+}
+
+function piiBadge(pii) {
+  return `<span class="badge badge-${pii ?? 'none'}">${pii ?? 'none'}</span>`;
+}
+
+function degBadge(level) {
+  return `<span class="badge badge-${level}">${level}</span>`;
+}
+
+function renderMetrics(records) {
+  const total = records.length;
+  const ac = records.filter(r => r.action === 'auto_close').length;
+  const esc = records.filter(r => r.action === 'escalate').length;
+  const hp = records.filter(r => r.pii_risk === 'high_pii').length;
+  const lats = records.map(r => r.latency_ms).filter(x => typeof x === 'number');
+  const avgLat = lats.length ? (lats.reduce((a,b)=>a+b,0)/lats.length).toFixed(1) : '—';
+  const fallback = records.filter(r => (r.degradation_note||'').includes('fallback') || (r.degradation_level && r.degradation_level !== 'L0')).length;
+
+  const cards = [
+    { val: total,   lbl: 'Всего тикетов' },
+    { val: ac,      lbl: 'auto_close ✅' },
+    { val: esc,     lbl: 'escalate 🔴' },
+    { val: hp,      lbl: 'high_pii 🔒' },
+    { val: avgLat + ' ms', lbl: 'Ср. latency' },
+    { val: fallback, lbl: 'Fallback/Degraded' },
+  ];
+  document.getElementById('metricsBar').innerHTML = cards.map(c =>
+    `<div class="metric-card"><div class="val">${c.val}</div><div class="lbl">${c.lbl}</div></div>`
+  ).join('');
+  document.getElementById('metricsWrap').style.display = 'block';
+}
+
 function renderTable(records, label) {
   document.getElementById('output').textContent = `${label}: ${records.length}`;
-  if (!records.length) { document.getElementById('tableWrap').innerHTML = '<p>Нет данных</p>'; return; }
-  let html = `<table><tr><th>ID</th><th>Тема</th><th>Увер.</th><th>PII</th><th>Действие</th><th>Оператор?</th><th>Черновик (preview)</th></tr>`;
+  if (!records.length) { document.getElementById('tableWrap').innerHTML = '<p>Нет данных</p>'; document.getElementById('metricsWrap').style.display='none'; return; }
+  renderMetrics(records);
+  let html = `<table><tr><th>ID</th><th>Тема</th><th>Увер.</th><th>PII</th><th>Действие</th><th>Деградация</th><th>Оператор?</th><th>Черновик (preview)</th></tr>`;
   records.forEach((r, i) => {
     const draft = (r.draft ?? '').toString();
-    const preview = draft.length > 100 ? draft.slice(0, 100) + '…' : draft;
+    const preview = draft.length > 80 ? draft.slice(0, 80) + '…' : draft;
     const conf = typeof r.confidence === 'number' ? r.confidence.toFixed(2) : (r.confidence ?? '');
-    html += `<tr class="clickable" onclick="openModal(${i})"><td>${r.ticket_id ?? ''}</td><td>${r.topic ?? ''}</td><td>${conf}</td><td>${r.pii_risk ?? ''}</td><td>${r.action ?? ''}</td><td>${r.requires_human ?? ''}</td><td class="draft-cell">${preview}</td></tr>`;
+    const degLevel = r.degradation_level || 'L0';
+    html += `<tr class="clickable" onclick="openModal(${i})">
+      <td>${r.ticket_id ?? ''}</td>
+      <td>${r.topic ?? ''}</td>
+      <td>${conf}</td>
+      <td>${piiBadge(r.pii_risk)}</td>
+      <td>${actionBadge(r.action)}</td>
+      <td>${degBadge(degLevel)}</td>
+      <td>${r.requires_human ? '👤 да' : '—'}</td>
+      <td class="draft-cell">${escHtml(preview)}</td>
+    </tr>`;
   });
   html += '</table><p style="font-size:12px;color:#8b949e;margin-top:6px;">Нажмите на строку, чтобы увидеть полные детали</p>';
   document.getElementById('tableWrap').innerHTML = html;
   window._tableRecords = records;
 }
 
+function buildDecisionTrace(r) {
+  const lines = [];
+  lines.push(`topic=${r.topic}, confidence=${typeof r.confidence==='number'?r.confidence.toFixed(3):r.confidence}`);
+  if (r.pii_risk && r.pii_risk !== 'none') lines.push(`pii_risk=${r.pii_risk}${r.pii_risk==='high_pii' ? ' → escalate forced' : ''}`);
+  const deg = r.degradation_level || 'L0';
+  const degNote = r.degradation_note || '';
+  if (deg !== 'L0') lines.push(`degradation=${deg} (${degNote})`);
+  if (!r.llm_available || (degNote.includes('llm'))) lines.push('llm_disabled → retrieval_fallback');
+  if (degNote.includes('llm_error_fallback')) lines.push('llm_error caught → switched to retrieval_only_draft');
+  if (r.similar_kb_id) lines.push(`retrieval: kb_id=${r.similar_kb_id}, similarity=${typeof r.similarity==='number'?r.similarity.toFixed(3):r.similarity}`);
+  if (r.action) lines.push(`action=${r.action}${r.requires_human?' → requires_human=true':''}`);
+  if (r.latency_ms) lines.push(`latency=${r.latency_ms} ms`);
+  return lines;
+}
+
 function openModal(index) {
   const r = window._tableRecords[index];
+
+  // Input block
   const inputHtml = r.text
     ? `<strong>Входной текст тикета:</strong>${escHtml(r.text)}`
     : `<strong>ticket_id:</strong> ${escHtml(r.ticket_id ?? '')}`;
   document.getElementById('modalInput').innerHTML = inputHtml;
+
+  // Decision trace
+  const traceLines = buildDecisionTrace(r);
+  document.getElementById('modalTrace').innerHTML = traceLines.map(l => `<li>${escHtml(l)}</li>`).join('');
+
+  // PII preview
+  const piiBlock = document.getElementById('modalPiiBlock');
+  const originalText = r.text || '';
+  const maskedText = r.redacted_text || r.masked_text || '';
+  const signals = r.pii_signals || r.signals || {};
+  const piiRisk = r.pii_risk || 'none';
+  if (piiRisk !== 'none' && (originalText || maskedText)) {
+    piiBlock.style.display = 'block';
+    document.getElementById('piiOriginal').textContent = originalText;
+    document.getElementById('piiMasked').textContent = maskedText || '(нет данных)';
+    // Entities badges
+    const active = Object.entries(signals).filter(([k,v])=>v===true).map(([k])=>k);
+    document.getElementById('piiEntities').innerHTML = active.length
+      ? active.map(e => `<span class="badge badge-high_pii">${e}</span>`).join('')
+      : '<span style="color:#8b949e;font-size:12px">нет данных</span>';
+  } else {
+    piiBlock.style.display = 'none';
+  }
+
+  // Human-in-the-loop
+  const humanBlock = document.getElementById('humanLoopBlock');
+  const approveBtn = document.getElementById('approveBtn');
+  const approvedBanner = document.getElementById('approvedBanner');
+  if (piiRisk === 'high_pii' && r.action === 'escalate') {
+    humanBlock.style.display = 'block';
+    approveBtn.style.display = 'inline-block';
+    approvedBanner.style.display = 'none';
+    window._currentModalRecord = r;
+  } else {
+    humanBlock.style.display = 'none';
+  }
+
+  // Raw JSON
   document.getElementById('modalContent').textContent = JSON.stringify(r, null, 2);
   document.getElementById('modalOverlay').classList.add('open');
+}
+
+function approveAndRerun() {
+  const approveBtn = document.getElementById('approveBtn');
+  const approvedBanner = document.getElementById('approvedBanner');
+  approveBtn.style.display = 'none';
+  approvedBanner.style.display = 'block';
+  // Simulate improved draft after operator approval (mock-flow)
+  const r = window._currentModalRecord;
+  const improved = `[OPERATOR APPROVED] Черновик ответа (улучшенный, PII скрыт):\n"Уважаемый клиент, ваше обращение проверено оператором. ${r.draft || 'Мы готовы помочь разобраться с вашим вопросом.'} Ответ отправлен вручную."\n\ndecision_trace: high_pii → escalate → operator_approved → improved_draft_generated`;
+  const current = document.getElementById('modalContent').textContent;
+  try {
+    const obj = JSON.parse(current);
+    obj._operator_action = 'approved_safe';
+    obj._improved_draft = improved;
+    document.getElementById('modalContent').textContent = JSON.stringify(obj, null, 2);
+  } catch(e) {}
 }
 
 function closeModal(event) {

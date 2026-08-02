@@ -35,6 +35,45 @@ def _log_decision(record: dict) -> None:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def _build_decision_trace(
+    topic: str,
+    confidence: float,
+    risk: str,
+    pii_signals: dict,
+    deg: dict,
+    action: str,
+    degradation_note: str,
+    similar: list,
+) -> list[str]:
+    """Build a human-readable list of reasons for the final decision."""
+    trace = []
+    trace.append(f"topic={topic}, confidence={round(confidence, 3)}")
+
+    active_signals = [k for k, v in pii_signals.items() if v]
+    if risk == "high_pii":
+        trace.append(f"high_pii_detected: {' + '.join(active_signals) if active_signals else 'card/passport'}")
+        trace.append("high_pii -> LLM_skipped, retrieval_only_draft, action=escalate")
+    elif risk == "low_pii":
+        trace.append(f"low_pii_detected: {' + '.join(active_signals)}")
+
+    if not deg["llm_available"] and deg["level"] in ("L0", "L1", "L3"):
+        trace.append("llm_available=false -> forced degradation >= L3")
+
+    deg_level = deg["level"]
+    queue_size = deg["queue_size"]
+    if deg_level != "L0":
+        trace.append(f"queue_size={queue_size} -> degradation={deg_level} ({deg['label']})")
+
+    if degradation_note and "fallback" in degradation_note:
+        trace.append("llm_error_caught -> switched to retrieval_fallback")
+
+    if similar:
+        trace.append(f"retrieval: kb_id={similar[0]['kb_id']}, similarity={round(similar[0]['similarity'], 3)}")
+
+    trace.append(f"action={action}")
+    return trace
+
+
 def process_ticket(ticket: dict, queue_size: int = 0, llm_available: bool = True) -> dict:
     """
     Main entry point. `ticket` must have 'ticket_id' and 'text'.
@@ -51,6 +90,8 @@ def process_ticket(ticket: dict, queue_size: int = 0, llm_available: bool = True
     # Step 2: PII detection (always local, no external calls)
     pii_result = pii.analyze(text)
     risk = pii_result["risk_level"]
+    pii_signals = pii_result["signals"]
+    redacted_text = pii_result["redacted_text"]
 
     # Step 3: retrieval of similar KB entry (used both for LLM context and fallback)
     similar = retrieval.find_similar(text, top_k=1)
@@ -115,19 +156,35 @@ def process_ticket(ticket: dict, queue_size: int = 0, llm_available: bool = True
 
     latency_ms = round((time.monotonic() - start) * 1000, 2)
 
+    decision_trace = _build_decision_trace(
+        topic=topic,
+        confidence=confidence,
+        risk=risk,
+        pii_signals=pii_signals,
+        deg=deg,
+        action=action,
+        degradation_note=degradation_note,
+        similar=similar,
+    )
+
     record = {
         "ticket_id": ticket.get("ticket_id"),
+        "text": text,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "topic": topic,
         "confidence": round(confidence, 3),
         "pii_risk": risk,
+        "pii_signals": pii_signals,
+        "redacted_text": redacted_text,
         "action": action,
         "requires_human": requires_human,
         "draft": draft,
+        "decision_trace": decision_trace,
         "similar_kb_id": similar[0]["kb_id"] if similar else None,
         "similarity": similar[0]["similarity"] if similar else None,
         "degradation_level": deg["level"],
         "degradation_note": degradation_note,
+        "llm_available": llm_available,
         "latency_ms": latency_ms,
         "model_version": "poc-tfidf-tree-v1",
     }
