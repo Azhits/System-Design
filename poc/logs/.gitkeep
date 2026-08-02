@@ -1,0 +1,2 @@
+This file keeps the logs/ directory tracked by git.
+decisions.jsonl (audit log written by pipeline.py) is created here at runtime.
