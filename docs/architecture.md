@@ -47,19 +47,20 @@
 
 ```mermaid
 stateDiagram-v2
-    [*] --> L0 : queue < 50, LLM up
+    [*] --> L0
     L0 --> L1 : queue 50-199
     L1 --> L2 : queue 200-499
-    L2 --> L3 : queue 500+ OR LLM unavailable
+    L2 --> L3 : queue 500+
     L3 --> L4 : queue 10000+
     L0 --> L3 : LLM unavailable
     L1 --> L3 : LLM unavailable
+    L2 --> L3 : LLM unavailable
 
-    state L0 { [*] --> normal : Full LLM generation }
-    state L1 { [*] --> high_load_batch : LLM micro-batching }
-    state L2 { [*] --> llm_overloaded : Retrieval-only drafts }
-    state L3 { [*] --> llm_unavailable : Retrieval-only drafts }
-    state L4 { [*] --> critical : Escalate all, no drafts }
+    state "L0 · normal\nFull LLM generation" as L0
+    state "L1 · high_load_batch\nLLM micro-batching" as L1
+    state "L2 · llm_overloaded\nRetrieval-only drafts" as L2
+    state "L3 · llm_unavailable\nRetrieval-only drafts" as L3
+    state "L4 · critical\nEscalate all, no drafts" as L4
 ```
 
 | Уровень | Триггер | Поведение |
