@@ -6,7 +6,7 @@
 <style>
   body { font-family: -apple-system, Arial, sans-serif; max-width: 960px; margin: 30px auto; padding: 0 16px; background: #0d1117; color: #c9d1d9; }
   h1 { font-size: 20px; }
-  textarea, input { width: 100%; box-sizing: border-box; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-family: inherit; }
+  textarea, input[type=text], input[type=number] { width: 100%; box-sizing: border-box; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-family: inherit; }
   button { background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px; }
   button:hover { background: #2ea043; }
   button.secondary { background: #30363d; }
@@ -16,13 +16,26 @@
   table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
   th, td { border: 1px solid #30363d; padding: 6px 8px; text-align: left; vertical-align: top; }
   th { background: #161b22; }
+  td { max-width: 200px; word-break: break-word; white-space: normal; overflow: hidden; }
+  td.draft-cell { max-width: 220px; color: #8b949e; font-style: italic; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: #1c2128; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 24px; max-width: 680px; width: 95%; max-height: 80vh; overflow-y: auto; position: relative; }
+  .modal h3 { margin-top: 0; font-size: 15px; color: #58a6ff; }
+  .modal pre { margin: 0; font-size: 12px; }
+  .modal-close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: #8b949e; font-size: 20px; cursor: pointer; padding: 0; }
+  .modal-close:hover { color: #c9d1d9; }
+  .ticket-input-block { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin-bottom: 12px; font-size: 13px; color: #8b949e; }
+  .ticket-input-block strong { color: #c9d1d9; display: block; margin-bottom: 4px; }
 </style>
 </head>
 <body>
-<h1>Support Ticket Automation - PoC Demo</h1>
+<h1>Support Ticket Automation — PoC Demo</h1>
 
 <h3>Обработать один тикет</h3>
-<input id="ticketId" placeholder="ticket_id, напр. T100" value="T100">
+<input id="ticketId" type="text" placeholder="ticket_id, напр. T100" value="T100">
 <textarea id="ticketText" rows="3" placeholder="Текст тикета"></textarea>
 <div class="row">
   <input id="queueSize" type="number" placeholder="queue_size" value="0">
@@ -37,45 +50,88 @@
 
 <div id="tableWrap"></div>
 
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalBox">
+    <button class="modal-close" onclick="closeModalDirect()">&#x2715;</button>
+    <h3>Детали тикета</h3>
+    <div class="ticket-input-block" id="modalInput"></div>
+    <pre id="modalContent"></pre>
+  </div>
+</div>
+
 <script>
+let lastInput = '';
+
 async function submitTicket() {
   const ticket_id = document.getElementById('ticketId').value || 'T100';
   const text = document.getElementById('ticketText').value;
   const queue_size = document.getElementById('queueSize').value || 0;
   const llm_available = document.getElementById('llmAvailable').checked;
+  lastInput = text;
   const res = await fetch(`/tickets?queue_size=${queue_size}&llm_available=${llm_available}`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ticket_id, text})
   });
   const data = await res.json();
-  document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+  const output = { _input: { ticket_id, text }, ...data };
+  document.getElementById('output').textContent = JSON.stringify(output, null, 2);
   document.getElementById('tableWrap').innerHTML = '';
 }
 
 async function loadMock() {
   const res = await fetch('/tickets/mock');
   const data = await res.json();
-  renderTable(data);
-  document.getElementById('output').textContent = `Обработано тикетов: ${data.length}`;
+  renderTable(data, 'Обработано тикетов');
 }
 
 async function loadDecisions() {
   const res = await fetch('/decisions');
   const data = await res.json();
-  renderTable(data);
-  document.getElementById('output').textContent = `Записей в журнале: ${data.length}`;
+  renderTable(data, 'Записей в журнале');
 }
 
-function renderTable(records) {
+function renderTable(records, label) {
+  document.getElementById('output').textContent = `${label}: ${records.length}`;
   if (!records.length) { document.getElementById('tableWrap').innerHTML = '<p>Нет данных</p>'; return; }
-  let html = '<table><tr><th>ID</th><th>Тема</th><th>Увер.</th><th>PII</th><th>Действие</th><th>Оператор?</th><th>Черновик</th></tr>';
-  for (const r of records) {
-    html += `<tr><td>${r.ticket_id ?? ''}</td><td>${r.topic ?? ''}</td><td>${r.confidence ?? ''}</td><td>${r.pii_risk ?? ''}</td><td>${r.action ?? ''}</td><td>${r.requires_human ?? ''}</td><td>${(r.draft ?? '').toString().slice(0,120)}</td></tr>`;
-  }
-  html += '</table>';
+  let html = `<table><tr><th>ID</th><th>Тема</th><th>Увер.</th><th>PII</th><th>Действие</th><th>Оператор?</th><th>Черновик (preview)</th></tr>`;
+  records.forEach((r, i) => {
+    const draft = (r.draft ?? '').toString();
+    const preview = draft.length > 100 ? draft.slice(0, 100) + '…' : draft;
+    const conf = typeof r.confidence === 'number' ? r.confidence.toFixed(2) : (r.confidence ?? '');
+    html += `<tr class="clickable" onclick="openModal(${i})"><td>${r.ticket_id ?? ''}</td><td>${r.topic ?? ''}</td><td>${conf}</td><td>${r.pii_risk ?? ''}</td><td>${r.action ?? ''}</td><td>${r.requires_human ?? ''}</td><td class="draft-cell">${preview}</td></tr>`;
+  });
+  html += '</table><p style="font-size:12px;color:#8b949e;margin-top:6px;">Нажмите на строку, чтобы увидеть полные детали</p>';
   document.getElementById('tableWrap').innerHTML = html;
+  window._tableRecords = records;
 }
+
+function openModal(index) {
+  const r = window._tableRecords[index];
+  const inputHtml = r.text
+    ? `<strong>Входной текст тикета:</strong>${escHtml(r.text)}`
+    : `<strong>ticket_id:</strong> ${escHtml(r.ticket_id ?? '')}`;
+  document.getElementById('modalInput').innerHTML = inputHtml;
+  document.getElementById('modalContent').textContent = JSON.stringify(r, null, 2);
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal(event) {
+  if (event.target === document.getElementById('modalOverlay'))
+    document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('modalOverlay').classList.remove('open');
+});
 </script>
 </body>
 </html>
