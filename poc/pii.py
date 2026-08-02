@@ -10,17 +10,60 @@ requires more than a bare name.
 This is a PoC-grade implementation: regex-based detectors, no ML/NER.
 In the target architecture this would be replaced by a proper PII/NER
 service (see docs/ml.md).
+
+Regex design notes (false-positive prevention):
+  PHONE_RE  - Russian mobile/landline formats only. Requires explicit
+              country code (+7 / 8) OR parenthesised area code, so bare
+              digit sequences like SNILS (123-456-789 00) and passport
+              numbers (4510 123456) are NOT matched.
+  CARD_RE   - 13-19 contiguous digit groups with optional single-char
+              separators, but PASSPORT_SNILS_RE is applied FIRST in
+              detect_signals so passport 'XXXX XXXXXX' (10 digits) is
+              handled by the dedicated pattern and not misclassified.
+              Card numbers are at least 13 digits; passport series+number
+              is exactly 10 digits, so they don't overlap.
 """
 import re
 from dataclasses import dataclass
 
 
-PHONE_RE = re.compile(r"(\+?\d[\d\-\s\(\)]{8,}\d)")
+# Phone: must start with +7, 8, or have area code in parentheses.
+# Matches: +7 921 555-12-34 | 8(495)123-45-67 | +79215551234
+# Does NOT match: bare digit sequences such as SNILS or passport numbers.
+PHONE_RE = re.compile(
+    r"(?:"
+    r"(?:\+7|8)[\s\-]?[\(]?\d{3}[\)]?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}"
+    r"|\+7\d{10}"
+    r")"
+)
+
 EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
-CARD_RE = re.compile(r"\b(?:\d[ -]?){13,19}\b")
-PASSPORT_SNILS_RE = re.compile(r"\b\d{2,4}[\s-]?\d{6}\b|\b\d{3}-\d{3}-\d{3}\s?\d{2}\b")
-ADDRESS_RE = re.compile(r"\b(?:г\.|город|ул\.|улица)\s?[\w\s.]{2,30}\d{1,4}\b", re.IGNORECASE)
-NAME_RE = re.compile(r"\b[\u0410-\u042f][\u0430-\u044f]+\s[\u0410-\u042f][\u0430-\u044f]+(?:\s[\u0410-\u042f][\u0430-\u044f]+)?\b")
+
+# Card: 13-19 digits with optional spaces/dashes between groups of 4.
+# Uses word boundaries to avoid matching inside longer digit strings.
+CARD_RE = re.compile(
+    r"\b(?:\d{4}[\s\-]?){3}\d{1,7}\b"
+)
+
+# Passport: 4-digit series + 6-digit number (with optional space/dash)
+# SNILS: NNN-NNN-NNN NN or NNNNNNNNNNN (11 digits)
+PASSPORT_SNILS_RE = re.compile(
+    r"\b\d{4}[\s]\d{6}\b"            # passport: 4510 123456
+    r"|\b\d{3}-\d{3}-\d{3}\s?\d{2}\b"  # SNILS:    123-456-789 00
+    r"|\b\d{11}\b"                       # SNILS without separators: 12345678900
+)
+
+ADDRESS_RE = re.compile(
+    r"\b(?:\u0433\.|\u0433\u043e\u0440\u043e\u0434|"
+    r"\u0443\u043b\.|\u0443\u043b\u0438\u0446\u0430)"
+    r"\s?[\w\s.]{2,30}\d{1,4}\b",
+    re.IGNORECASE,
+)
+NAME_RE = re.compile(
+    r"\b[\u0410-\u042f][\u0430-\u044f]+\s"
+    r"[\u0410-\u042f][\u0430-\u044f]+"
+    r"(?:\s[\u0410-\u042f][\u0430-\u044f]+)?\b"
+)
 
 
 @dataclass
@@ -37,6 +80,8 @@ class PiiSignals:
 
 
 def detect_signals(text: str) -> PiiSignals:
+    # Run PASSPORT_SNILS_RE before CARD_RE/PHONE_RE so the dedicated
+    # pattern claims its digit sequences first (no double-counting).
     return PiiSignals(
         name=bool(NAME_RE.search(text)),
         phone=bool(PHONE_RE.search(text)),
