@@ -1,63 +1,62 @@
-# Architecture
+# Архитектура
 
-## Overview
+## Обзор
 
-The system automates first-line support-ticket handling: classify the ticket, check for PII/PD risk, retrieve a relevant knowledge-base answer, and decide between auto-close, operator-assisted suggestion, or full escalation. Every decision is logged for audit and compliance.
+Система автоматизирует первичную обработку тикетов поддержки: классифицирует тикет, проверяет риск наличия персональных данных (ПДн), находит релевантный ответ в базе знаний и принимает решение — автоматически закрыть тикет, предложить оператору вариант ответа или полностью эскалировать. Каждое решение логируется для аудита и соответствия требованиям.
 
 ```
-        +-------------+     +-------------+     +--------------+
-        |  Classifier |     |  PII/PD     |     |  Retrieval   |
- Ticket ->  (topic +   | --> |  detector   | --> |  (KB search) |
-        |  confidence)|     |  (risk lvl) |     |              |
-        +-------------+     +-------------+     +--------------+
-               \                  |                    |
-                \                 v                    v
-                 +-----------> Decision engine <-------+
-                                    |
-                        +-----------+-----------+
-                        |           |           |
-                   auto_close    suggest     escalate
-                        |           |           |
-                        +-----------+-----------+
-                                    |
-                              audit log (jsonl)
+        +-------------+  +-------------+  +---------------+
+        |  Классифи-  |  |  Детектор   |  |    Поиск по   |
+Тикет ->|  катор      |->|  ПДн        |->|  базе знаний  |
+        |  (тема +    |  |  (уровень   |  |  (retrieval)  |
+        |  уверенность)|  |  риска)     |  |               |
+        +-------------+  +-------------+  +---------------+
+              \                |                  |
+               \               v                  v
+                +-----------> Движок решений <-----+
+                              |
+                +-------------+-------------+
+                |             |             |
+           auto_close     suggest       escalate
+                |             |             |
+                +-------------+-------------+
+                              |
+                        журнал аудита (jsonl)
 ```
 
-## Components
+## Компоненты
 
-- **classifier.py** — topic classification (TF-IDF + Decision Tree in the PoC). Returns topic + confidence.
-- **pii.py** — PII/PD signal detection and risk scoring. In the PoC this is regex-based; production should use a proper PII/NER service.
-- **retrieval.py** — finds the most relevant knowledge-base entry via TF-IDF cosine similarity (PoC). Target architecture: sentence embeddings + a vector DB (pgvector/FAISS).
-- **llm_client.py** — abstraction over the LLM provider used for draft generation. The PoC uses a mock client with configurable failure/latency flags so the rest of the pipeline can be tested against degraded conditions without a real API.
-- **degradation.py** — computes the current degradation level (L0-L4) from queue size and LLM health, and tells the pipeline whether to use the LLM, batch requests, or skip straight to escalation.
-- **pipeline.py** — orchestrates the above steps and applies the decision logic (see `ml.md` and `risks-and-ops.md`).
-- **app.py** — FastAPI HTTP interface + demo UI, so the pipeline can be exercised without writing code.
+- **classifier.py** — классификация темы тикета (TF-IDF + дерево решений в PoC). Возвращает тему и уверенность.
+- **pii.py** — детекция сигналов ПДн и оценка риска. В PoC реализовано на регулярных выражениях; в продакшене должен использоваться полноценный сервис PII/NER.
+- **retrieval.py** — поиск наиболее релевантной записи в базе знаний через косинусное сходство TF-IDF (PoC). Целевая архитектура: sentence embeddings + векторная БД (pgvector/FAISS).
+- **llm_client.py** — абстракция над провайдером LLM, используемым для генерации черновиков ответов. В PoC используется mock-клиент с настраиваемыми флагами сбоев/задержек, чтобы остальной пайплайн можно было тестировать в условиях деградации без реального API.
+- **degradation.py** — вычисляет текущий уровень деградации (L0-L4) на основе размера очереди и состояния LLM, и определяет, должен ли пайплайн использовать LLM, объединять запросы в батчи или сразу эскалировать.
+- **pipeline.py** — оркестрирует перечисленные выше шаги и применяет логику принятия решений (см. `ml.md` и `risks-and-ops.md`).
+- **app.py** — HTTP-интерфейс на FastAPI + демонстрационный UI, позволяющий работать с пайплайном без написания кода.
 
-## Data flow
+## Поток данных
 
-1. A ticket (`ticket_id`, `text`) arrives via the API (or is read from `data/mock_tickets.json`).
-2. The classifier assigns a topic and confidence score.
-3. The PII module scores the risk level from combinations of identifying signals found in the text.
-4. The retrieval module finds the closest knowledge-base entry to use as context.
-5. The pipeline applies the decision rules and, if needed, calls the LLM (respecting the current degradation level) to draft a reply.
-6. The final decision (action, draft, confidence, risk, degradation level, latency) is appended to `logs/decisions.jsonl`.
+1. Тикет (`ticket_id`, `text`) поступает через API (или считывается из `data/mock_tickets.json`).
+2. Классификатор присваивает тему и оценку уверенности.
+3. Модуль PII оценивает уровень риска на основе комбинаций идентифицирующих сигналов, найденных в тексте.
+4. Модуль retrieval находит наиболее близкую запись в базе знаний для использования как контекст.
+5. Пайплайн применяет правила принятия решений и при необходимости вызывает LLM (с учётом текущего уровня деградации) для составления черновика ответа.
+6. Итоговое решение (действие, черновик, уверенность, риск, уровень деградации, задержка) добавляется в `logs/decisions.jsonl`.
 
-## Degradation levels (L0-L4)
+## Уровни деградации (L0-L4)
 
-| Level | Trigger | Behavior |
+| Уровень | Триггер | Поведение |
 |-------|---------|----------|
-| L0 | normal load | Full LLM generation per ticket with retrieval context |
-| L1 | high load | LLM used in micro-batches (multiple tickets per API call) to control cost/latency |
-| L2 | LLM overloaded/slow | No LLM calls; retrieval-only template drafts |
-| L3 | LLM unavailable (circuit breaker open) | Retrieval-only drafts, same as L2 |
-| L4 | critical overload | No draft generation at all; everything routed straight to an operator |
+| L0 | нормальная нагрузка | Полная генерация LLM для каждого тикета с контекстом из retrieval |
+| L1 | высокая нагрузка | LLM используется в микро-батчах (несколько тикетов за один вызов API) для контроля стоимости/задержки |
+| L2 | LLM перегружен/медленный | Без вызовов LLM; черновики только на основе retrieval-шаблонов |
+| L3 | LLM недоступен (circuit breaker открыт) | Черновики только на основе retrieval, аналогично L2 |
+| L4 | критическая перегрузка | Генерация черновиков полностью отключена; все тикеты направляются оператору |
 
-This ensures the system keeps functioning (with reduced automation quality) instead of failing outright when the LLM provider is degraded or the ticket queue spikes.
+Это обеспечивает продолжение работы системы (со сниженным качеством автоматизации) вместо полного отказа при деградации провайдера LLM или всплеске очереди тикетов.
 
-## Target production architecture (beyond the PoC)
+## Целевая production-архитектура (за пределами PoC)
 
-- Replace the TF-IDF classifier with a model trained on real historical ticket data (or a fine-tuned/prompted LLM classifier with a fallback).
-- Replace TF-IDF retrieval with sentence embeddings + a vector database (pgvector or FAISS) for semantic search over a larger knowledge base.
-- Replace the mock LLM client with a real provider client behind a circuit breaker, plus request/response logging for auditability.
-- Move the audit log from a local `.jsonl` file to a proper data store (e.g. PostgreSQL or an append-only event log) with retention policy aligned to `docs/risks-and-ops.md`.
-- Add authentication/authorization to the API and role-based access for operators reviewing escalated tickets.
+- Заменить TF-IDF классификатор моделью, обученной на реальных исторических данных тикетов (или дообученным/промптируемым LLM-классификатором с fallback-механизмом).
+- Заменить TF-IDF retrieval на sentence embeddings + векторную базу данных (pgvector или FAISS) для семантического поиска по большой базе знаний.
+- Заменить mock LLM-клиент на клиент реального провайдера, работающий за circuit breaker, с логированием запросов/ответов для обеспечения аудируемости.
