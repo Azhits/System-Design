@@ -2,97 +2,171 @@
   {
     "ticket_id": "T001",
     "channel": "chat",
+    "scenario": "happy_path",
     "text": "Как сбросить пароль от личного кабинета? Не приходит письмо для восстановления.",
+    "expected_action": "auto_close",
     "created_at": "2026-08-01T10:00:00Z"
   },
   {
     "ticket_id": "T002",
     "channel": "email",
+    "scenario": "risky_topic",
     "text": "Хочу вернуть деньги за подписку, которой не пользовался. Оформите возврат, пожалуйста.",
+    "expected_action": "escalate",
     "created_at": "2026-08-01T10:05:00Z"
   },
   {
     "ticket_id": "T003",
     "channel": "web_form",
+    "scenario": "happy_path",
     "text": "Приложение вылетает при открытии раздела Оплата на Android 14.",
+    "expected_action": "suggest",
     "created_at": "2026-08-01T10:10:00Z"
   },
   {
     "ticket_id": "T004",
     "channel": "chat",
+    "scenario": "risky_path_pii_payment",
     "text": "Списали деньги дважды за один и тот же заказ, номер карты 4111 1111 1111 1111, разберитесь пожалуйста.",
+    "expected_action": "escalate",
+    "expected_pii": "high_pii",
     "created_at": "2026-08-01T10:15:00Z"
   },
   {
     "ticket_id": "T005",
     "channel": "mobile_app",
-    "text": "Иванов Иван Иванович, проживаю по адресу г. Москва, ул. Ленина 10, у меня не получается подтвердить адрес доставки.",
+    "scenario": "risky_path_pii_identity",
+    "text": "Иванов Иван Иванович, проживаю по адресу г. Москва ул. Ленина 10, у меня не получается подтвердить адрес доставки.",
+    "expected_action": "escalate",
+    "expected_pii": "high_pii",
     "created_at": "2026-08-01T10:20:00Z"
   },
   {
     "ticket_id": "T006",
     "channel": "chat",
+    "scenario": "happy_path",
     "text": "Как изменить email в настройках профиля?",
+    "expected_action": "auto_close",
     "created_at": "2026-08-01T10:25:00Z"
   },
   {
     "ticket_id": "T007",
     "channel": "email",
+    "scenario": "risky_topic_complaint",
     "text": "Это уже третье обращение, ваш сервис ужасен, я буду жаловаться в Роспотребнадзор и подавать в суд!",
+    "expected_action": "escalate",
     "created_at": "2026-08-01T10:30:00Z"
   },
   {
     "ticket_id": "T008",
     "channel": "web_form",
+    "scenario": "happy_path",
     "text": "Подскажите, какие способы оплаты поддерживаются в вашем сервисе?",
+    "expected_action": "auto_close",
     "created_at": "2026-08-01T10:35:00Z"
   },
   {
     "ticket_id": "T009",
     "channel": "chat",
+    "scenario": "risky_path_pii_phone",
     "text": "Мой телефон +7 921 555-12-34, перезвоните мне, оператор не берет трубку уже час.",
+    "expected_action": "suggest",
+    "expected_pii": "low_pii",
     "created_at": "2026-08-01T10:40:00Z"
   },
   {
     "ticket_id": "T010",
     "channel": "mobile_app",
+    "scenario": "happy_path",
     "text": "Не могу войти в аккаунт, пишет неверный пароль, хотя пароль точно верный.",
+    "expected_action": "auto_close",
     "created_at": "2026-08-01T10:45:00Z"
   },
   {
     "ticket_id": "T011",
     "channel": "email",
+    "scenario": "risky_topic_billing",
     "text": "Верните деньги за заказ 55231, оплата не прошла но деньги списались.",
+    "expected_action": "escalate",
     "created_at": "2026-08-01T10:50:00Z"
   },
   {
     "ticket_id": "T012",
     "channel": "chat",
+    "scenario": "risky_path_pii_email",
     "text": "Петрова Мария, email maria.petrova@example.com, хочу удалить свой аккаунт полностью и все данные.",
+    "expected_action": "escalate",
+    "expected_pii": "high_pii",
     "created_at": "2026-08-01T10:55:00Z"
   },
   {
     "ticket_id": "T013",
     "channel": "web_form",
+    "scenario": "happy_path",
     "text": "Сайт не загружается уже второй день, выдает ошибку 502.",
+    "expected_action": "suggest",
     "created_at": "2026-08-01T11:00:00Z"
   },
   {
     "ticket_id": "T014",
     "channel": "chat",
+    "scenario": "risky_topic_abuse",
     "text": "Оскорбительное поведение оператора поддержки, требую разбирательства и компенсации.",
+    "expected_action": "escalate",
     "created_at": "2026-08-01T11:05:00Z"
   },
   {
     "ticket_id": "T015",
     "channel": "mobile_app",
+    "scenario": "happy_path",
     "text": "Как подключить двухфакторную аутентификацию в приложении?",
+    "expected_action": "auto_close",
     "created_at": "2026-08-01T11:10:00Z"
   },
   {
     "ticket_id": "T016",
     "channel": "email",
+    "scenario": "risky_path_pii_passport",
     "text": "Мой паспорт 4510 123456, СНИЛС 123-456-789 00, прошу подтвердить личность для восстановления доступа.",
+    "expected_action": "escalate",
+    "expected_pii": "high_pii",
     "created_at": "2026-08-01T11:15:00Z"
+  },
+  {
+    "ticket_id": "T017",
+    "channel": "chat",
+    "scenario": "low_confidence_escalate",
+    "text": "Хотел бы уточнить насчёт вашего предложения, которое пришло мне на прошлой неделе.",
+    "expected_action": "escalate",
+    "note": "Неоднозначный текст — низкая уверенность классификатора, эскалация",
+    "created_at": "2026-08-01T11:20:00Z"
+  },
+  {
+    "ticket_id": "T018",
+    "channel": "web_form",
+    "scenario": "high_load_degradation",
+    "text": "Когда будет готов мой заказ №8821?",
+    "note": "Запустите с queue_size=300 для демонстрации деградации L2 (retrieval-only, без LLM)",
+    "expected_action": "suggest",
+    "created_at": "2026-08-01T11:25:00Z"
+  },
+  {
+    "ticket_id": "T019",
+    "channel": "mobile_app",
+    "scenario": "llm_unavailable_fallback",
+    "text": "Не приходят уведомления о статусе заказа.",
+    "note": "Запустите с llm_available=false для демонстрации L3 — retrieval fallback без LLM",
+    "expected_action": "suggest",
+    "created_at": "2026-08-01T11:30:00Z"
+  },
+  {
+    "ticket_id": "T020",
+    "channel": "chat",
+    "scenario": "risky_path_full_pii",
+    "text": "Иванов Алексей Петрович, телефон +7 916 123-45-67. С моей карты 4276 1234 5678 9010 списали 3 500 рублей без моего ведома. Требую немедленного возврата!",
+    "expected_action": "escalate",
+    "expected_pii": "high_pii",
+    "note": "Максимально рискованный тикет: ФИО + телефон + номер карты + billing. Демонстрирует все защиты одновременно.",
+    "created_at": "2026-08-01T11:35:00Z"
   }
 ]
